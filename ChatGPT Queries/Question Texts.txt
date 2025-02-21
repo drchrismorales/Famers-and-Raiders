@@ -1,0 +1,38 @@
+#1
+# The "Random" strategy
+# This agent randomly chooses between ATTACK and FARM with equal probability.
+
+#2
+# The "Pavlovian" strategy (Win-Stay, Lose-Shift)
+# Cooperates if it and its opponent moved alike in previous move and defects if they moved differently.
+# https://plato.stanford.edu/entries/prisoner-dilemma/strategy-table.html
+
+#3
+# Reactive (with parameters y,p,q)
+# Cooperates with probability y in first round and with probabilities p or q after opponent cooperates or defects.
+# https://plato.stanford.edu/entries/prisoner-dilemma/strategy-table.html
+
+#4
+#Random TitTat
+# On the first turn, it randomly chooses to farm or attack, then does whatever the other agent did last time.
+
+#4b
+#Random TitTat
+# When first meeting a new agent, it randomly chooses to farm or attack, then does whatever the other agent did last time.
+
+#5
+# The "Grudger" strategy
+# Initially cooperates but if the other agent has ever attacked, this agent will always ATTACK in response.
+
+#6
+#The "Exploiter" strategy
+# It starts by cooperating, then
+# 1. If the other agent has never attacked, it attacks.
+# 2. If the other agent also attacks on its first move, it keeps attacking.
+# 3. If the other agent farmed on its first move, it attacks until the other agent attacks. Then:
+# 3a. It farms twice.
+# 3b. From then on it copies the other agent's last move.
+
+#7
+#Once-burned, twice-shy strategy
+# On the first move, if the most recent move of the most recently-added key in the memory is an attack, it will attack. On subsequent moves copy the other agent's last move.

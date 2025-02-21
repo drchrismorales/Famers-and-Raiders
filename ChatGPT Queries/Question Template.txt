@@ -1,0 +1,225 @@
+Based on the following python script, code a class described by the given comment.
+
+
+Script:
+```
+import random
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import datetime
+
+####################################################################################################
+# Constant definitions
+####################################################################################################
+
+ATTACK = 1
+FARM = 0
+INTERACT_RANGE = 0.02
+REPRODUCE_SCORE = 100
+MAX_AGENTS = 600
+BASE_SCORE = 50
+
+X_LIM = .57
+Y_LIM = .57
+
+SCORE_MATRIX = [[(3,3),(-5,5)], [(5,-5),(0,0)]]
+
+####################################################################################################
+# Parent class for all agents
+####################################################################################################
+
+class Group:
+    max_id = 0 #What ID numbers have been issued?
+    def __init__(self, x, y, speed, color):
+        self.x = x
+        self.y = y
+        self.speed = speed
+        self.color = color
+        self.id = Group.max_id #Issue an ID
+        Group.max_id += 1 #Increment the next ID to be issued
+        self.memory = {} #Empty dictionary
+        self.my_actions_memory = {} #Empty dictionary
+        self.score = BASE_SCORE #Start with >0 score to avoid instant starvation
+        self.avg_move = .5
+        self.weight = 1
+
+    def interact(self, other, score_log):
+        own_move = self.next_move(other.id)
+        other_move = other.next_move(self.id)
+
+        self.score += SCORE_MATRIX[own_move][other_move][0]
+        score_log[self.__class__.color][-1] += SCORE_MATRIX[own_move][other_move][0]
+
+        other.score += SCORE_MATRIX[own_move][other_move][1]
+        score_log[other.__class__.color][-1] += SCORE_MATRIX[own_move][other_move][1]
+        
+        self.record_moves(own_move, other.id, other_move)
+        other.record_moves(other_move, self.id, own_move)
+    def record_moves(self, my_move, id_num, move):
+        #Note: Making a list of past moves
+        if id_num in self.memory.keys():
+            self.memory[id_num].append(move)
+            self.my_actions_memory[id_num].append(my_move)
+        else:
+            self.memory[id_num] = [move]
+            self.my_actions_memory[id_num] = [my_move]
+        if my_move == ATTACK and move == ATTACK: return
+        self.avg_move = ((self.avg_move*self.weight)+my_move)/(self.weight+1)
+        self.weight += 1
+        
+####################################################################################################
+# Agent classes
+####################################################################################################
+
+#The "Always Defect" strategy
+# It always Attacks the other agent, regardless of what the other agent does.
+class Raider(Group):
+    color = "tab:orange"
+    def __init__(self, x,y):
+        super().__init__(x,y,.02,__class__.color)
+
+    def next_move(self, other_id):
+        return ATTACK
+    
+#The "Always Cooperate" strategy
+# It always Farms, regardless of what the other agent does.
+class Farmer(Group):
+    color = "tab:brown"
+    def __init__(self, x,y):
+        super().__init__(x,y,.01,__class__.color)
+
+    def next_move(self, other_id):
+        return FARM
+
+#The classic "Solution to the Prisoner's Dilemma" strategy
+# It starts by cooperating, and then does whatever the other agent did last time.
+class TitTat(Group):
+    color = "tab:green"
+    def __init__(self, x,y):
+        super().__init__(x,y,.01,__class__.color)
+
+    def next_move(self, other_id):
+        if other_id not in self.memory.keys():
+            return FARM
+        else:
+            return self.memory[other_id][-1]
+
+####################################################################################################
+# Function definitions
+####################################################################################################
+
+def observe(agents):
+    '''function for displaying the world'''
+    if(len(agents) <= 0): return
+    plt.figure()#Begin a new plot
+    for ag in agents:
+        plt.plot(ag.x,ag.y,'.',color = ag.color)#plot the rabbits as small brown dots.
+
+    pdf.savefig()#write the plot out as a page in the pdf
+    plt.close()#close the plot
+
+def update(agents, score_log):
+    #Don't move them in the same order every time
+    random.shuffle(agents)
+    #Move all agents
+    for ag in agents:
+        #agent moves
+        ag.x += random.uniform(-1*ag.speed, ag.speed)
+        ag.y += random.uniform(-1*ag.speed, ag.speed)
+
+        #The agent might now be outside the field, so check and re-set position
+        while ag.x >= X_LIM:
+            ag.x -= X_LIM
+        while ag.x < 0:
+            ag.x += X_LIM
+        while ag.y >= Y_LIM:
+            ag.y -= Y_LIM
+        while ag.y < 0:
+            ag.y += Y_LIM
+    #All agents interact with neighbors
+    for ag in agents:
+        for nb in agents:
+            if ag is nb: continue
+            if abs(ag.x - nb.x) < INTERACT_RANGE and abs(ag.y - nb.y) < INTERACT_RANGE:
+                    ag.interact(nb, score_log)
+    #Agents with negative scores die, agents with strongly positive socres may reproduce
+    numFarmers = 0
+    for ag in agents:
+        if ag.avg_move <= .5:
+            numFarmers += 1
+    for ag in agents:
+        ag.score -= 1 #Score decreases over time
+        if ag.score < 0:
+            agents.remove(ag)
+        elif ag.score > REPRODUCE_SCORE:
+            if ag.avg_move > .5 or random.random() < (1 - numFarmers/MAX_AGENTS):
+                agents.append(type(ag)(ag.x, ag.y))
+                ag.score = BASE_SCORE
+            else:
+                ag.score = REPRODUCE_SCORE #Cap the score
+
+def log(agents, init_list, logdict, score_log):
+    for t in init_list:
+        logdict[t[0].color].append(0)
+    for ag in agents:
+        logdict[ag.__class__.color][-1] += 1
+    for c in score_log.keys():
+        score_log[c].append(score_log[c][-1])
+
+####################################################################################################
+# Primary model run function
+####################################################################################################
+
+def model_run(num):
+    init_list = [(TitTat, 100), (Raider, 100)]
+    agents = []
+    for t in init_list:
+        for i in range(t[1]):
+            x = random.random()*X_LIM
+            y = random.random()*Y_LIM
+            agents.append(t[0](x,y))
+
+    logdict = {}
+    total_score_log_dict = {}
+    for t in init_list:
+        logdict[t[0].color] = [t[1]]
+        total_score_log_dict[t[0].color] = [0]
+    #Do a bunch of updates
+    for i in range(100):
+        print(num, "-", i)
+        update(agents, total_score_log_dict)
+        if i % 5 == 0:#One observation every 50 updates
+            observe(agents)
+            log(agents, init_list, logdict, total_score_log_dict)
+
+    for c in logdict.keys():
+        times = [t for t in range(0, len(logdict[c]))]
+        plt.plot(times, logdict[c], '-', color=c)
+    pdf.savefig()#write the plot out as a page in the pdf
+    plt.close()#close the plot
+
+    for c in total_score_log_dict.keys():
+        times = [t for t in range(0, len(total_score_log_dict[c]))]
+        plt.plot(times, total_score_log_dict[c], '-', color=c)
+    pdf.savefig()#write the plot out as a page in the pdf
+    plt.close()#close the plot
+
+####################################################################################################
+# Script begins here
+####################################################################################################
+
+current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+str_current_datetime = str(current_datetime)
+
+file_name = "gameTheory"+str_current_datetime+".pdf"
+pdf = PdfPages(file_name)
+for i in range(5):
+    model_run(i)
+
+pdf.close()
+```
+
+Class to code:
+```
+#Question text
+```

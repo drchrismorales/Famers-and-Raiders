@@ -7,6 +7,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import datetime
+from matplotlib.lines import Line2D
 
 ####################################################################################################
 # Constant definitions
@@ -74,7 +75,7 @@ class Group:
 #The "Always Defect" strategy
 # It always Attacks the other agent, regardless of what the other agent does.
 class Raider(Group):
-    color = "tab:orange"
+    color = "#000000"
     shape = "." #Small dot
     def __init__(self, x,y):
         super().__init__(x,y,.02,__class__.color)
@@ -85,7 +86,7 @@ class Raider(Group):
 #The "Always Cooperate" strategy
 # It always Farms, regardless of what the other agent does.
 class Farmer(Group):
-    color = "tab:brown"
+    color = "#010101"
     shape = "s" #Square
     def __init__(self, x,y):
         super().__init__(x,y,.01,__class__.color)
@@ -96,7 +97,7 @@ class Farmer(Group):
 #The classic "Solution to the Prisoner's Dilemma" strategy
 # It starts by cooperating, and then does whatever the other agent did last time.
 class TitTat(Group):
-    color = "tab:green"
+    color = "#020202"
     shape = "*" #Star
     def __init__(self, x,y):
         super().__init__(x,y,.01,__class__.color)
@@ -107,16 +108,59 @@ class TitTat(Group):
         else:
             return self.memory[other_id][-1]
 
+class Test(Group):
+    color = "tab:blue"  # Assign a unique color for Reactive agents
+    shape = "*" #Star
+    
+    def __init__(self, x, y, initial_coop_prob=1, coop_after_coop_prob=1, coop_after_defect_prob=0):
+        """
+        Initialize a Reactive agent with specific probabilities.
+        
+        :param x: Initial x-coordinate of the agent
+        :param y: Initial y-coordinate of the agent
+        :param initial_coop_prob: Probability of cooperating in the first round
+        :param coop_after_coop_prob: Probability of cooperating after opponent cooperates
+        :param coop_after_defect_prob: Probability of cooperating after opponent defects
+        """
+        super().__init__(x, y, 0.01, __class__.color)
+        self.y = initial_coop_prob
+        self.p = coop_after_coop_prob
+        self.q = coop_after_defect_prob
+
+    def next_move(self, other_id):
+        """
+        Decide the next move based on the opponent's previous move and the agent's strategy probabilities.
+        
+        :param other_id: The ID of the opponent
+        :return: FARM (0) if cooperating, ATTACK (1) if defecting
+        """
+        if other_id not in self.memory:
+            # First round: decide based on initial cooperation probability
+            return FARM if random.random() < self.y else ATTACK
+        
+        # Check the opponent's last move
+        last_move = self.memory[other_id][-1]
+        if last_move == FARM:
+            # Opponent cooperated: decide based on p
+            return FARM if random.random() < self.p else ATTACK
+        else:
+            # Opponent defected: decide based on q
+            return FARM if random.random() < self.q else ATTACK
 ####################################################################################################
 # Function definitions
 ####################################################################################################
 
-def observe(agents):
+def observe(agents, init_list):
     '''function for displaying the world'''
     if(len(agents) <= 0): return
     plt.figure()#Begin a new plot
     for ag in agents:
-        plt.plot(ag.x,ag.y,ag.__class__.shape,color = ag.color)#plot the rabbits as small brown dots.
+        plt.plot(ag.x,ag.y,ag.__class__.shape,color = ag.color)
+        plt.xlim(0,X_LIM)
+        plt.ylim(0,Y_LIM)
+        plt.axis('off')
+        #add key
+        plt.legend([Line2D([], [], color='black', marker=t[0].shape, linestyle='None') for t in init_list], [t[0].__name__ for t in init_list], loc='upper right')
 
     pdf.savefig()#write the plot out as a page in the pdf
     plt.close()#close the plot
@@ -174,7 +218,7 @@ def log(agents, init_list, logdict, score_log):
 ####################################################################################################
 
 def model_run(num):
-    init_list = [(Farmer, 50), (TitTat, 50), (Raider, 100)]
+    init_list = [(Farmer, 50), (Test, 50), (Raider, 100)]
     agents = []
     for t in init_list:
         for i in range(t[1]):
@@ -192,12 +236,13 @@ def model_run(num):
         print(num, "-", i)
         update(agents, total_score_log_dict)
         if i % 5 == 0:#One observation every 50 updates
-            observe(agents)
+            observe(agents, init_list)
             log(agents, init_list, logdict, total_score_log_dict)
 
     for c in logdict.keys():
         times = [t for t in range(0, len(logdict[c]))]
         plt.plot(times, logdict[c], '-', color=c)
+        plt.legend([t[0].__name__ for t in init_list])
     pdf.savefig()#write the plot out as a page in the pdf
     plt.close()#close the plot
 
@@ -216,7 +261,7 @@ str_current_datetime = str(current_datetime)
 
 file_name = "gameTheory"+str_current_datetime+".pdf"
 pdf = PdfPages(file_name)
-for i in range(5):
+for i in range(2):
     model_run(i)
 
 pdf.close()

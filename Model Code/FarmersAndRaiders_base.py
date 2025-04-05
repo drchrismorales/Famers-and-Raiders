@@ -30,6 +30,7 @@ SCORE_MATRIX = [[(3,3),(-5,5)], [(5,-5),(0,0)]]
 
 class Group:
     max_id = 0 #What ID numbers have been issued?
+    shape = "."
     def __init__(self, x, y, speed, color):
         self.x = x
         self.y = y
@@ -75,7 +76,6 @@ class Group:
 # It always Attacks the other agent, regardless of what the other agent does.
 class Raider(Group):
     color = "tab:orange"
-    shape = "." #Small dot
     def __init__(self, x,y):
         super().__init__(x,y,.02,__class__.color)
 
@@ -86,7 +86,6 @@ class Raider(Group):
 # It always Farms, regardless of what the other agent does.
 class Farmer(Group):
     color = "tab:brown"
-    shape = "s" #Square
     def __init__(self, x,y):
         super().__init__(x,y,.01,__class__.color)
 
@@ -97,7 +96,6 @@ class Farmer(Group):
 # It starts by cooperating, and then does whatever the other agent did last time.
 class TitTat(Group):
     color = "tab:green"
-    shape = "*" #Star
     def __init__(self, x,y):
         super().__init__(x,y,.01,__class__.color)
 
